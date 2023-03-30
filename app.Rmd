@@ -1,0 +1,1907 @@
+---
+title: "Estimate Dashboard"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: cerulean
+    source_code: embed
+  includes:
+    after_body: busy.html
+runtime: shiny
+---
+
+<style>
+body {
+  color: black;
+  font-family: Calibri;
+  background-color: #B0C4DE;
+}
+pre {
+  color: black;
+  background-color: #B0C4DE;
+}
+</style>
+  
+```{r setup, include=FALSE}
+
+library(ggbeeswarm)
+library(shinyWidgets)
+library(plotly)
+
+```
+
+```{r, include = FALSE}
+
+load("app-data/app_data.RData")
+
+simpop_first100reps_Mar2023Data <- read.csv("app-data/simpop_first100reps_Mar2023Data.csv")
+simpop_first100reps_Mar2023Data["tnt"][simpop_first100reps_Mar2023Data["tnt"] == 1] <- 0
+simpop_first100reps_Mar2023Data["tnt"][simpop_first100reps_Mar2023Data["tnt"] == 2] <- 1
+simpop_first100reps_Mar2023Data$tnt <- as.factor(simpop_first100reps_Mar2023Data$tnt)
+
+subsecMeans_Mar2023Data <- read.csv("app-data/subsecMeans_Mar2023Data.csv")
+
+# create general theme for following plots
+zwcody23_theme <-  theme(panel.background = element_rect(fill = "white", colour = "grey15"),
+        text = element_text(size = 14, family = "Sans Serif", color = "black"),
+        axis.text = element_text(size = 10, family = "Serif", colour = "black"),
+        axis.title.x = element_text(size = 12, family = "Serif", colour = "black"),
+        axis.title.y = element_text(size = 12, family = "Serif", colour = "black"),
+        legend.title = element_text(size = 14, family = "Serif", colour = "black"),
+        legend.key.size = unit(0.1, 'in'),
+        legend.text = element_text(size = 10, family = "Serif", colour = "black"))
+
+y_vars_list <- list("Live basal area (sqft/acre)"  = "BA_MEAN",
+                            "Aboveground dry biomass (tons/acre)" = "DRYBIO_MEAN",
+                            "Board-foot volume/acre" = "VOLBFNET_MEAN",
+                            "Cubic-foot volume/acre" = "VOLCFNET_MEAN",
+                            "Number of live trees per acre" = "COUNT_MEAN",
+                           "Carbon Mean" = "CARBON_MEAN")
+
+y_vars_list_2 <- list("Live basal area (sqft/acre)"  = "BA",
+                            "Aboveground dry biomass (tons/acre)" = "DRYBIO",
+                            "Board-foot volume/acre" = "VOLBFNET",
+                            "Cubic-foot volume/acre" = "VOLCFNET",
+                            "Number of live trees per acre" = "COUNT",
+                           "Carbon Mean" = "CARBON")
+
+
+x_vars_list <- list("TMndvi"  = "TMndvi",
+                            "TMevi" = "TMevi",
+                            "Tcc16" = "tcc16",
+                            "Elevation" = "elev",
+                            "Roughness" = "roughness",
+                            "Tri" = "tri",
+                             "Tpi" = "tpi",
+                    "Ppt" = "ppt",
+                    "Tmean" = "tmean",
+                    "Tmax" = "tmax",
+                    "Tmin" = "tmin",
+                    "Vpdmax" = "vpdmax",
+                    "Def" = "def",
+                    "Tdmean" = "tdmean"
+                            )
+
+```
+
+Welcome 
+==================================================
+
+Row 
+--------------------------------------------------
+                                              
+```{r picture, echo = F, out.width = '100%', out.height='100%'} 
+knitr::include_graphics("background.png")
+```
+
+Overview
+==================================================
+
+Row 
+--------------------------------------------------
+
+###
+```{r picture2, echo = F, out.width ='100%', out.height='100%'} 
+knitr::include_graphics("region.png")
+```
+
+### ***The Data*** 
+The Forest and Analysis Program, or FIA, is a branch of the US Forest Service dedicated to keeping a comprehensive and up-to-date inventory of US forest resources. The FIA conducts a survey sampling approach to gather the data necessary for this project. The FIA ensures an equal distribution of survey locations across the country by partitioning the entire US into ~6000-acre hexagons and randomly choosing one location per hexagon as a permanent sample plot. At each sample plot, FIA field crews collect data on forest attributes to measure different aspects of forest health. Additionally, the entire sampled area is partitioned into domains, and different geological features and forest types determine each domain's border and size. Our research narrows the scope to 23 domains, and the image to the left depicts our domains' location and borders. The project aims to develop models that can strengthen the sample estimates while displaying the distribution of estimates across reps on this shiny app.
+
+Row 
+--------------------------------------------------
+### ***Our Contributions***
+
+The app currently compares two simple estimators and a small-area model based on linear regression. The simple estimators are derived by taking the direct and post-stratified averages of the six sample variables. The variable used for post-stratification is categorical and represents whether the location contains trees. The explanatory variables used for each linear regression are detailed in the 'About' section. While there are many small area estimation models, the one used here is a unit-level model called the Battese-Harter-Fuller model. Each model is fit to many "reps" of simulated samples from a pre-made artificial population. Each "rep" of the artificial population is a simulation of the sample data created using auxiliary satellite data and a k-nearest-neighbors approach. The artificial population allows us to see the distribution of estimates across many reps. The goal is to find a model that works well across many reps of the artificial population because that model is likely to be a good fit for the actual sample data. The app showcases estimates derived from the three estimators for the first ten reps of the artificial population. The first page displays the distribution of estimates across reps and allows users to select the domains they wish to compare. The user can also select to view the relative bias of an estimate. The second page allows the user to compare the distribution of each estimate across estimators for the same domain. The sample means are also displayed to compare the distribution of estimates in the simulated population to the actual means derived from the sample data. The app is a tool used to ensure estimates get created correctly. Additionally, the app makes it easy to compare models across domains to determine whether a particular model struggles with a domain or if a single model performs best across all domains. Visualizing this information will help us continue to create more accurate models.
+
+Row 
+--------------------------------------------------
+### ***Future Goals***
+
+The goal is to continue refining existing models while also creating new models until we find one that works well across all repetitions in the artificial population. If a model can achieve this in the simulated data, it will likely be a good fit for the sample data. Eventually, we want to fit that model to the sample data, not the auxiliary data. The end goal is to use this final model to make predictions for each pixel in the auxiliary data, allowing us to generate domain-level summary statistics that are more accurate than the summary statistics derived from the sampled data. Furthermore, in addition to relative bias, we also want to add metrics for MSE and confidence interval coverage to give the user more flexibility in measuring the accuracy of a model. Finally, we also want to create a page to look at plots of associations between the chosen response variable and any explanatory variables used for modeling to help users explore why certain estimators might have good or bad performance for specific domains. The ongoing project will eventually increase forest attribute estimates at the domain level to better inform the FIA on forest health metrics.
+
+Compare Domains
+==================================================
+
+Inputs {.sidebar}
+------------------------------------------------
+
+```{r}
+
+pickerInput("prov",
+            label = "Select Domain",
+            choices = unique(subsecMeans_simpop_estm$SUBSECTION),
+            selected = unique(subsecMeans_simpop_estm$SUBSECTION)[[1]],
+            options = list(`actions-box` = TRUE,
+                            size = 10,
+                            `selected-text-format` = "count > 3"),
+          multiple = TRUE)
+
+selectInput("attr", label = "Which variable do you want to map?",
+            choices = y_vars_list,
+                    selected = "BA_MEAN")
+
+selectInput("pred", label = "Which predictor do you want to use?",
+            choices = list("Direct Average Predictor" = "avg",
+                           "Post-Stratified Means" = "ps",
+            "Small Area Estimator" = "sae"))
+
+selectInput("sort", label = "Sort?",
+            choices = list("Alphabetical" = "none",
+                           "Mean (low to high)" = "mean",
+                           "Domain size (small to large)" = "size"))
+
+```
+
+
+row {.tabset}
+-----------------------------------------------------------------------
+
+### By Estimate
+
+```{r out.width="90%"}
+
+# Boxplot version
+output$estimates <- renderPlotly({
+  
+    estimates <- ggplot(subset(subsecMeans_simpop_estm[subsecMeans_simpop_estm$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate", text = paste("REP:", rep))) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "size")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_order[subsecMeans_simpop_estm_order$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "mean")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_ba[subsecMeans_simpop_estm_ba$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate", text = paste("REP:", rep))) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_drybio[subsecMeans_simpop_estm_drybio$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_volbfnet[subsecMeans_simpop_estm_volbfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_volcfnet[subsecMeans_simpop_estm_volcfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_count[subsecMeans_simpop_estm_count$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_carbon[subsecMeans_simpop_estm_carbon$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x="SUBSECTION", y= input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Direct Average Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "none")
+  
+    estimates <- ggplot(subset(subsecMeans_simpop_estm[subsecMeans_simpop_estm$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red')) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "size")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_order[subsecMeans_simpop_estm_order$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "mean")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_ba[subsecMeans_simpop_estm_ba$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_drybio[subsecMeans_simpop_estm_drybio$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_volbfnet[subsecMeans_simpop_estm_volbfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_volcfnet[subsecMeans_simpop_estm_volcfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_count[subsecMeans_simpop_estm_count$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_carbon[subsecMeans_simpop_estm_carbon$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Post-Stratified Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+    
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "none")
+  
+    estimates <- ggplot(subset(subsecMeans_simpop_estm[subsecMeans_simpop_estm$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "size")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_order[subsecMeans_simpop_estm_order$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "mean")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_ba[subsecMeans_simpop_estm_ba$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_drybio[subsecMeans_simpop_estm_drybio$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_volbfnet[subsecMeans_simpop_estm_volbfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_volcfnet[subsecMeans_simpop_estm_volcfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_count[subsecMeans_simpop_estm_count$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    estimates <- ggplot(subset(subsecMeans_simpop_estm_carbon[subsecMeans_simpop_estm_carbon$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x= "SUBSECTION", y= input$attr)) + 
+  geom_boxplot(fill = "#B0C4DE") + geom_beeswarm(aes(color = "Rep Estimate")) +
+  geom_point(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov), aes(color = "Simulated Population Mean\n(All Reps)")) +
+  zwcody23_theme +
+  labs(title = "Distribution of Small Area Estimates Across Domains",
+       x = "Subsection",
+       y = names(y_vars_list)[which(y_vars_list == input$attr)]) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) + 
+    scale_color_manual(name='   Legend',
+                     breaks=c("Rep Estimate", 'Simulated Population Mean\n(All Reps)'),
+                     values=c("Rep Estimate" = "black", 'Simulated Population Mean\n(All Reps)'='red'))
+
+  
+ggplotly(estimates)
+
+})
+
+plotlyOutput('estimates')
+
+```
+
+### By Relative Bias
+
+```{r out.width="90%"}
+
+# Boxplot version
+output$relative_bias <- renderPlotly({
+  
+    relative_bias <- ggplot(subset(relative_bias_estm[relative_bias_estm$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "size")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_order[relative_bias_estm_order$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "mean")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_ba[relative_bias_estm_ba$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_drybio[relative_bias_estm_drybio$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_volcfnet[relative_bias_estm_volcfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+     predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_volbfnet[relative_bias_estm_volbfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_count[relative_bias_estm_count$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_carbon[relative_bias_estm_carbon$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "none")
+  
+    relative_bias <- ggplot(subset(relative_bias_estm[relative_bias_estm$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "size")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_order[relative_bias_estm_order$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "mean")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_ba[relative_bias_estm_ba$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_drybio[relative_bias_estm_drybio$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_volcfnet[relative_bias_estm_volcfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_volbfnet[relative_bias_estm_volbfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_count[relative_bias_estm_count$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_carbon[relative_bias_estm_carbon$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+      predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "none")
+  
+    relative_bias <- ggplot(subset(relative_bias_estm[relative_bias_estm$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "size")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_order[relative_bias_estm_order$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "mean")
+        
+    relative_bias <- ggplot(subset(relative_bias_estm_ba[relative_bias_estm_ba$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_drybio[relative_bias_estm_drybio$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_volcfnet[relative_bias_estm_volcfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_volbfnet[relative_bias_estm_volbfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_count[relative_bias_estm_count$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    relative_bias <- ggplot(subset(relative_bias_estm_carbon[relative_bias_estm_carbon$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area Relative Bias Across Domains",
+       x = "Subsection",
+       y = "Relative Bias") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+ggplotly(relative_bias)
+
+})
+
+plotlyOutput('relative_bias')
+
+```
+
+### By MSE Ratio
+
+```{r out.width="90%"}
+
+# Boxplot version
+output$mse <- renderPlotly({
+  
+    mse <- ggplot(subset(mse_ratio_final[mse_ratio_final$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "size")
+    
+    mse <- ggplot(subset(mse_ratio_order[mse_ratio_order$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "mean")
+    
+    mse <- ggplot(subset(mse_ratio_ba[mse_ratio_ba$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_drybio[mse_ratio_drybio$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_volcfnet[mse_ratio_volcfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_volbfnet[mse_ratio_volbfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_count[mse_ratio_count$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_carbon[mse_ratio_carbon$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Direct Average MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "none")
+  
+    mse <- ggplot(subset(mse_ratio_final[mse_ratio_final$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "size")
+    
+    mse <- ggplot(subset(mse_ratio_order[mse_ratio_order$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "mean")
+    
+    mse <- ggplot(subset(mse_ratio_ba[mse_ratio_ba$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_drybio[mse_ratio_drybio$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_volcfnet[mse_ratio_volcfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_volbfnet[mse_ratio_volbfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_count[mse_ratio_count$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_carbon[mse_ratio_carbon$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Post-Stratified MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "none")
+  
+    mse <- ggplot(subset(mse_ratio_final[mse_ratio_final$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "size")
+    
+    mse <- ggplot(subset(mse_ratio_order[mse_ratio_order$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'sae' & sorter == "mean")
+    
+    mse <- ggplot(subset(mse_ratio_ba[mse_ratio_ba$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_drybio[mse_ratio_drybio$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_volcfnet[mse_ratio_volcfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_volbfnet[mse_ratio_volbfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_count[mse_ratio_count$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    mse <- ggplot(subset(mse_ratio_carbon[mse_ratio_carbon$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes_string(x = "SUBSECTION", y = input$attr)) +
+  geom_boxplot(fill = "#B0C4DE") + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.1) +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Small Area MSE Ratio Across Domains",
+       x = "Subsection",
+       y = "mse/MSE") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+  
+ggplotly(mse)
+
+})
+
+plotlyOutput('mse')
+
+```
+
+### By Confidence Interval
+
+```{r, out.width="90%", fig.height= 14}
+
+output$ci <- renderPlotly({
+  
+    ci <- ggplot(subset(ci_data_perc[ci_data_perc$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+  geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'avg' & sorter == "size")
+
+    ci <- ggplot(subset(ci_data_perc_order[ci_data_perc_order$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "BA_MEAN")
+
+    ci <- ggplot(subset(ci_data_perc_ba[ci_data_perc_ba$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLCFNET_MEAN")
+
+    ci <- ggplot(subset(ci_data_perc_volcfnet[ci_data_perc_volcfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "VOLBFNET_MEAN")
+
+    ci <- ggplot(subset(ci_data_perc_volbfnet[ci_data_perc_volbfnet$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "DRYBIO_MEAN")
+
+    ci <- ggplot(subset(ci_data_perc_drybio[ci_data_perc_drybio$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "COUNT_MEAN")
+
+    ci <- ggplot(subset(ci_data_perc_count[ci_data_perc_count$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'avg' & sorter == "mean" & var == "CARBON_MEAN")
+
+    ci <- ggplot(subset(ci_data_perc_carbon[ci_data_perc_carbon$ESTIMATOR == "Direct Average Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "none")
+    
+    ci <- ggplot(subset(ci_data_perc[ci_data_perc$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  if (predictor == 'ps' & sorter == "size")
+    
+    ci <- ggplot(subset(ci_data_perc_order[ci_data_perc_order$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "BA_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_ba[ci_data_perc_ba$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_volcfnet[ci_data_perc_volcfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_volbfnet[ci_data_perc_volbfnet$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_drybio[ci_data_perc_drybio$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_count[ci_data_perc_count$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'ps' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_carbon[ci_data_perc_carbon$ESTIMATOR == "Post-Stratified Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+    geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+  
+    predictor <- paste(input$pred)
+    sorter <- paste(input$sort)
+    if (predictor == 'sae' & sorter == "none")
+    
+    ci <- ggplot(subset(ci_data_perc[ci_data_perc$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+    
+        predictor <- paste(input$pred)
+        sorter <- paste(input$sort)
+        if (predictor == 'sae' & sorter == "size")
+    
+    ci <- ggplot(subset(ci_data_perc_order[ci_data_perc_order$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+        
+    predictor <- paste(input$pred)
+    sorter <- paste(input$sort)
+    var <- paste(input$attr)
+    if (predictor == 'sae' & sorter == "mean" & var == "BA_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_ba[ci_data_perc_ba$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+        
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLCFNET_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_volcfnet[ci_data_perc_volcfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+        
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "VOLBFNET_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_volbfnet[ci_data_perc_volbfnet$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+        
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "DRYBIO_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_drybio[ci_data_perc_drybio$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+        
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "COUNT_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_count[ci_data_perc_count$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+        
+  predictor <- paste(input$pred)
+  sorter <- paste(input$sort)
+  var <- paste(input$attr)
+  if (predictor == 'sae' & sorter == "mean" & var == "CARBON_MEAN")
+    
+    ci <- ggplot(subset(ci_data_perc_carbon[ci_data_perc_carbon$ESTIMATOR == "Small Area Estimator", ], SUBSECTION %in% input$prov), aes(x = SUBSECTION)) +
+  geom_bar(aes_string(y = input$attr), stat = "identity" , fill = "#B0C4DE") +
+  zwcody23_theme +
+  labs(title = "Percentage of Sampled Values that Fall Within Estimated 95% Confidence Intervals",
+       x = "SUBSECTION",
+       y = "Coverage of 95% Confidence Intervals") +
+      geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) 
+    
+ggplotly(ci)
+
+})
+
+plotlyOutput('ci')
+
+```
+
+Compare Models
+==================================================
+
+Inputs {.sidebar}
+------------------------------------------------
+
+```{r out.width="90%"}
+
+pickerInput("prov2",
+            label = "Select Domain",
+            choices = unique(subsecMeans_simpop_estm$SUBSECTION),
+            selected = unique(subsecMeans_simpop_estm$SUBSECTION)[[1]],
+          multiple = FALSE)
+
+selectInput("attr2", label = "Which variable do you want to map?",
+            choices = y_vars_list,
+                    selected = "BA_MEAN")
+
+```
+
+row {.tabset}
+-----------------------------------------------------------------------
+
+### By Estimate
+
+```{r, out.width="90%"}
+
+output$compare_estimators <- renderPlotly({
+  
+    compare_estimators <- ggplot(subset(subsecMeans_simpop_estm, SUBSECTION %in% input$prov2), aes_string(x = "ESTIMATOR", y = input$attr2)) +
+  geom_boxplot(fill = "#B0C4DE") + 
+  facet_wrap(~ SUBSECTION, ncol = 1, scales = 'free_y') +
+  geom_beeswarm() +
+  geom_hline(data = subset(subsecMeans_Mar2023Data, SUBSECTION %in% input$prov2), mapping = aes_string(yintercept = input$attr2), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Compare Estimates",
+       x = "Estimator",
+       y = names(y_vars_list)[which(y_vars_list == input$attr2)]) +
+  theme(axis.text.y = element_text(vjust = 0.5))
+
+ggplotly(compare_estimators)
+
+})
+
+plotlyOutput('compare_estimators')
+
+```
+
+### By Relative Bias
+
+```{r, out.width="90%"}
+
+output$compare_relative_bias <- renderPlotly({
+  
+    compare_relative_bias <- ggplot(subset(relative_bias_estm, SUBSECTION %in% input$prov2), aes_string(x = "ESTIMATOR", y = input$attr2)) +
+  geom_boxplot(fill = "#B0C4DE") + 
+  facet_wrap(~ SUBSECTION, ncol = 1, scales = 'free_y') +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 0), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Compare Relative Bias",
+       x = "Estimator",
+       y = "Relative Bias") +
+  theme(axis.text.y = element_text(vjust = 0.5))
+
+ggplotly(compare_relative_bias)
+
+})
+
+plotlyOutput('compare_relative_bias')
+
+```
+
+### By MSE Ratio
+
+```{r, out.width="90%"}
+
+output$compare_mse <- renderPlotly({
+  
+    compare_mse <- ggplot(subset(mse_ratio_final, SUBSECTION %in% input$prov2), aes_string(x = "ESTIMATOR", y = input$attr2)) +
+  geom_boxplot(fill = "#B0C4DE") + 
+  facet_wrap(~ SUBSECTION, ncol = 1, scales = 'free_y') +
+  geom_beeswarm() +
+  geom_hline(mapping = aes(yintercept = 1), color = "red") +
+  zwcody23_theme +
+  aes(text = paste("REP:", rep)) +
+  labs(title = "Compare MSE Ratios",
+       x = "Estimator",
+       y = "mse/MSE") +
+  theme(axis.text.y = element_text(vjust = 0.5))
+
+ggplotly(compare_mse)
+
+})
+
+plotlyOutput('compare_mse')
+
+```
+
+### By Confidence Interval
+
+```{r, out.width="90%"}
+
+output$compare_ci <- renderPlotly({
+  
+    compare_ci <- ggplot(subset(ci_data_perc, SUBSECTION %in% input$prov2), aes_string(x = "ESTIMATOR", y = input$attr2)) +
+  geom_bar(stat = "identity", fill = "#B0C4DE") + 
+  facet_wrap(~ SUBSECTION, ncol = 1, scales = 'free_y') +
+  geom_hline(mapping = aes(yintercept = 95), color = "red") +
+  zwcody23_theme +
+  labs(title = "Compare 95% Confidence Intervals",
+       x = "Estimator",
+       y = "Coverage of 95% CIs") +
+  theme(axis.text.y = element_text(vjust = 0.5))
+
+ggplotly(compare_ci)
+
+})
+
+plotlyOutput('compare_ci')
+
+```
+
+Explore Relationships
+==================================================
+
+Inputs {.sidebar}
+------------------------------------------------
+
+```{r}
+
+selectInput("rep", label = "Select Rep",
+            choices = unique(subsecMeans_simpop_estm$rep),
+                    selected = unique(subsecMeans_simpop_estm$rep)[[1]])
+
+selectInput("yvar", label = "Which sample variable do you want to map?",
+            choices = y_vars_list_2,
+                    selected = "BA")
+
+selectInput("xvar", label = "Which auxiliary variable do you want to map?",
+            choices = x_vars_list,
+                    selected = "Tmndvi")
+
+checkboxInput("tnt", label = "By Tnt Class?")
+
+```
+
+row {.tabset}
+-----------------------------------------------------------------------
+
+### Scatter Plot
+
+```{r, out.width="90%", out.height="100%"}
+
+output$eda <- renderPlotly({
+  
+    eda <- ggplot(subset(simpop_first100reps_Mar2023Data, rep %in% input$rep), aes_string(x = input$xvar, y = input$yvar)) +
+  geom_point(color = "#B0C4DE") +
+  geom_smooth(color = "red", se = FALSE) +
+  facet_wrap(~ SUBSECTION) +
+  zwcody23_theme +
+  labs(title = "",
+       x = names(x_vars_list)[which(x_vars_list == input$xvar)],
+       y = names(y_vars_list)[which(y_vars_list == input$yvar)]) 
+
+  facet <- paste(input$tnt)
+  if (facet == TRUE)
+    
+    eda <- ggplot(subset(simpop_first100reps_Mar2023Data, rep %in% input$rep), aes_string(x = input$xvar, y = input$yvar)) +
+  geom_point(color = "#B0C4DE") +
+  geom_smooth(aes(color = tnt), se = FALSE) +
+  facet_wrap(~ SUBSECTION) + 
+  zwcody23_theme +
+  scale_color_manual(values = c("red", "black")) +
+  labs(title = "",
+       x = names(x_vars_list)[which(x_vars_list == input$xvar)],
+       y = names(y_vars_list)[which(y_vars_list == input$yvar)],
+       color = "TNT Class") 
+
+ggplotly(eda)
+
+})
+
+plotlyOutput('eda')
+
+```
+
+About
+==================================================
+
+**Regressions**
+
+Basal Area = Tcc, Elevation, Roughness, Ppt
+
+Board Foot Volume = Tcc, Tmean, Tnfdef, Ppt 
+
+Cubic Foot Volume = Tcc, Tmean, Tnfdef, Ppt
+
+Count = Tcc, Elevation, Tri, Def
+
+Dry Biomass = Tcc, Tmean, Tri, Tnfdef, Ppt
+
+Carbon = Tcc, Tmean, Tri, Tnfdef, Ppt
+
+**Authors**
+
+Developed by Zachariah Cody - zwcody23@colby.edu 
+
+Overseen by Jerzy Wieczorek - jawieczo@colby.edu
+
+**Sources**
+
+Code & Stylistic Inspiration:
+https://fia-dash.shinyapps.io/fiesta-subsections/#section-overview
+
+
+
