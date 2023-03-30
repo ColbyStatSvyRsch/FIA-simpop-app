@@ -1,0 +1,11 @@
+name: fia-simpop-app
+title:
+username:
+account: civilstat
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8720967
+bundleId: 7028905
+url: https://civilstat.shinyapps.io/fia-simpop-app/
+when: 1680188880.69426
+lastSyncTime: 1680188880.69427
