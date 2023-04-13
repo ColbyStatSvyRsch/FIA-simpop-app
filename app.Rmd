@@ -22,12 +22,21 @@ pre {
   background-color: #B0C4DE;
 }
 </style>
-  
+
+
 ```{r setup, include=FALSE}
 
 library(ggbeeswarm)
 library(shinyWidgets)
 library(plotly)
+
+# for Mapping page
+library(sf)
+library(dplyr)
+library(leaflet)
+library(RColorBrewer)
+library(htmltools)
+library(htmlwidgets)
 
 ```
 
@@ -83,6 +92,15 @@ x_vars_list <- list("TMndvi"  = "TMndvi",
                     "Tdmean" = "tdmean"
                             )
 
+
+# for Mapping page:
+#loading the eco subsections shapefile for mapping purposes  
+eco.sf <- st_read("./app-data/S_USA.EcomapSubsections.shp")
+# creating and appending a new column to the dataset that accounts for section values
+estim.data1 <- subsecMeans_simpop_estm
+section <- substring(estim.data1$SUBSECTION, 5,5)
+estim.data1$section <- section
+
 ```
 
 Welcome 
@@ -127,6 +145,206 @@ Row
 ### ***Future Goals***
 
 The goal is to continue refining existing models while also creating new models until we find one that works well across all repetitions in the artificial population. If a model can achieve this in the simulated data, it will likely be a good fit for the sample data. Eventually, we want to fit that model to the sample data, not the auxiliary data. The end goal is to use this final model to make predictions for each pixel in the auxiliary data, allowing us to generate domain-level summary statistics that are more accurate than the summary statistics derived from the sampled data. The ongoing project will eventually increase forest attribute estimates at the domain level to better inform the FIA on forest health metrics.
+
+
+
+
+Mapping
+==========
+
+Inputs {.sidebar}
+------------------------------------------------
+
+
+```{r map-inputs}
+
+#this sections creates each of the slider inputs! If you create additional user inputs,
+#make sure to name then differently from the ones used above to avoid errors within shiny
+
+#this slider lets you select the variable you would like to map
+selectInput("var1", label = "Which variable do you want to map?",
+            choices = y_vars_list,
+            selected = "BA_MEAN")
+
+#this slider lets you select the estimator you would like to map
+selectInput("pred23", label = "Which Estimator do you want?",
+            choices = c("Direct Average Estimator" = "Direct Average Estimator",
+                        "Post-Stratified Estimator" = "Post-Stratified Estimator",
+                        "Small Area Estimator" = "Small Area Estimator"),
+            selected = "Direct Average Estimator")
+
+
+sliderInput("Rep", label = "Replication Number",
+            min = 1,
+            max = 100,
+            value = 1,
+            step = 1,
+            animate = animationOptions(loop = FALSE))
+
+
+```
+
+row {.tabset}
+-----------------------------------------------------------------------
+
+
+
+```{r map-outputs}
+
+#not reactive section
+estim.data3 <- estim.data1  %>%
+  filter(rep == 1, ESTIMATOR == "Direct Average Estimator") %>%
+  left_join(eco.sf, by=c("SUBSECTION" = "MAP_UNIT_S")) %>%
+  sf::st_as_sf() %>%
+  sf::st_transform('+proj=longlat +datum=WGS84')
+
+forestcols3 <- brewer.pal(9, "Blues")[3:9]
+#domain is the possible values that can be mapped and is this case
+#would be all of the values from the original data set for that y variable, since this
+#will cover all of the possible values that could be mapped and will result in a legend
+#that won't change
+#This is why I use the original dataset here and not the reactive data set
+pal3 <- colorBin(forestcols3, domain = estim.data1$BA_MEAN)
+
+
+#in this section, I will create several reactive elements that will modify paramters
+#prior to mapping and then I will map the data using leaflet!
+
+
+#######Filtering the data first
+# creating a reactive element that will filter the dataset when any one element is changed
+# by the user. The dataset that is returned will be used throughout the program!!
+estim.data <- eventReactive({c(input$pred23, input$Rep, input$var1)}, {
+    estim.data <- estim.data1 %>% #original data set from Jerzy
+      filter(rep == input$Rep, ESTIMATOR == input$pred23) %>% #filtering by the selected         estimator and rep number
+      left_join(eco.sf, by=c("SUBSECTION" = "MAP_UNIT_S")) %>% #joining with the spatial         data
+      sf::st_as_sf() %>% #you need to re-orient the object (not really sure why)
+      sf::st_transform('+proj=longlat +datum=WGS84') #fixes the error message about the         projection
+    return(estim.data) #returning the final filtered data set
+  })
+
+
+palfinder2 <- eventReactive(input$var1, {
+      color1 <- brewer.pal(n = 4, name ="Dark2")
+      pal1 <- colorFactor(color1, domain = estim.data()$section)
+      return(pal1)
+  })
+
+#creating different colors for when the user changes the y-variable
+color_list = c("Blues", "Greens", "Oranges", "Reds", "Purples", "YlGn")
+
+#this reactive element is activated when the user changes the y-variable and results in the color palette being changed
+palFinder <- eventReactive(input$var1, {
+      color <- color_list[match(input$var1, y_vars_list)]
+      #assigning the color palette using the color finder function from above
+      #the [3:9] indexes it so that it starts out with darker beginning colors
+      forestcols <- brewer.pal(9, color)[3:9]
+      #domain is the possible values that can be mapped and is this case
+      #would be all of the values from the original data set for that y variable, since this 
+      #will cover all of the possible values that could be mapped and will result in a legend
+      #that won't change
+      #This is why I use the original dataset here and not the reactive data set
+      pal <- colorBin(forestcols, domain = subsecMeans_simpop_estm[[input$var1]])
+      return(pal)
+  })
+
+
+labelsinitial <- sprintf(
+  "<strong>Live Basal Area: %s  </strong><br/>Subsection: %s<br/>Section: %s", round(estim.data3$BA_MEAN,2), estim.data3$SUBSECTION, estim.data3$section
+) %>% lapply(htmltools::HTML)
+
+#now creating the base output map object with provider tiles that
+#will not change with each new update
+output$map <- renderLeaflet({
+  #Now making the leaflet part ;)
+  leaflet(data=estim.data3) %>%
+    addProviderTiles("Esri.WorldGrayCanvas") %>% #adding the background tiles
+    fitBounds(lng1 = -125, lng2 = -110,
+                      lat1 = 44, lat2 = 50) %>%
+    addPolygons(color = ~palfinder2()(section), opacity=5, stroke = TRUE, fillOpacity = 0, weight=2) %>%
+    addPolygons(fillColor = ~pal3(estim.data3$BA_MEAN),
+                weight = 2,
+                opacity = 0.01,
+                fillOpacity = 0.5,
+                label=labelsinitial, #adds the labels created above (with rollover capability)
+                labelOptions = labelOptions(
+                  style = list("font-weight" = "normal", padding = "3px 8px"),
+                  textsize = "15px",
+                  direction = "auto"))%>%
+        addLegend("bottomleft", pal = palFinder(),
+              values =estim.data3$BA_MEAN, title="Live Basal Area") %>%
+    addLegend("bottomleft", pal = palfinder2(),
+              values =section,
+            title = "section")
+
+})
+
+
+#changing the color pallet with the changing y variable and mapping
+#these new color tiles. At this observe event, we also add the legend
+#which will stay the same for each y-variable
+
+observeEvent(input$var1, {
+  leafletProxy("map", data = estim.data()) %>%
+    clearControls() %>%
+      #adds the legend
+    addLegend("bottomleft", pal = palFinder(),
+              values = subsecMeans_simpop_estm[[input$var1]],
+            title = names(y_vars_list)[which(y_vars_list == input$var1)]) %>%
+    addLegend("bottomleft", pal = palfinder2(),
+              values = section,
+            title = "section")
+
+})
+
+#this will change the polygons and labels each time that either the rep, the
+#estimator or the y-var is change
+observeEvent(ignoreNULL = F, ignoreInit = T, c(input$Rep,  input$pred23, input$var1), {
+
+labels <- sprintf(
+  "<strong>%s: </strong><strong>%s</strong><br/>Subsection: %s<br/>Section: %s",  names(y_vars_list)[which(y_vars_list == input$var1)], round(estim.data()[[input$var1]],2), estim.data()$SUBSECTION, estim.data()$section
+) %>% lapply(htmltools::HTML)
+
+
+
+leafletProxy("map", data = estim.data()) %>%
+    addPolygons(fillColor = ~palFinder()(estim.data()[[input$var1]]),
+                weight = 2,
+                opacity = .001,
+                fillOpacity = 0.5,
+                highlightOptions = highlightOptions(
+                  weight = 1,
+                  fillOpacity = 0.04,
+                  bringToFront = T), #adds the polygons
+                label=labels, #adds the labels created above (with rollover capability)
+                labelOptions = labelOptions(
+                  style = list("font-weight" = "normal", padding = "3px 8px"),
+                  textsize = "15px",
+                  direction = "auto"))  %>%
+  addPolygons(color = ~palfinder2()(section), opacity=5, stroke = TRUE, fillOpacity = 0, weight=2,
+              highlightOptions = highlightOptions(
+                  weight = 1,
+                  fillOpacity = 0.01,
+                  bringToFront = T), #adds the polygons
+                label=labels, #adds the labels created above (with rollover capability)
+                labelOptions = labelOptions(
+                  style = list("font-weight" = "normal", padding = "3px 8px"),
+                  textsize = "15px",
+                  direction = "auto"))
+})
+
+
+# fillpage() which is part of shiny, will make it so that the map fills the entire page not just the upper half
+#fillPage(leafletOutput("map", width = "100%", height = "100%"))
+# ...but I'm commenting out fillPage()
+# because (for some reason) this wrecks the "cerulean" theme for entire Shiny app
+# and the map still looks fine without it
+leafletOutput("map", width = "100%", height = "100%")
+
+```
+
+
+
 
 Compare Domains
 ==================================================
